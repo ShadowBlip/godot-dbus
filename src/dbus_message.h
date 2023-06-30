@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "godot_cpp/classes/global_constants.hpp"
+#include "godot_cpp/variant/dictionary.hpp"
 #include "godot_cpp/variant/packed_byte_array.hpp"
 #include "godot_cpp/variant/packed_string_array.hpp"
 #include "godot_cpp/variant/string.hpp"
@@ -35,9 +36,12 @@ public:
   // Methods
   bool is_empty();
   int get_type();
+  godot::String get_error_name();
+  godot::String get_signature();
   void new_method_call(godot::String bus_name, godot::String path,
                        godot::String iface, godot::String method);
   godot::String get_string_args();
+  godot::Array get_args();
 };
 
 #endif // DBUS_MESSAGE_CLASS_H

@@ -48,6 +48,14 @@ $(DEBUG_TARGET): $(ALL_HEADERS) $(ALL_CPP) $(GODOT_CPP_FILES)
 
 ##@ Development
 
+.PHONY: edit-demo
+edit-demo: build ## Edit the demo project in Godot
+	godot --editor --path ./demo
+
+.PHONY: run-demo
+run-demo: build
+	godot --path ./demo
+
 .PHONY: compiledb
 compiledb: compile_commands.json ## Generate compiledb.json
 compile_commands.json: godot-cpp/SConstruct $(ALL_CPP) $(ALL_HEADERS) $(GODOT_CPP_FILES)

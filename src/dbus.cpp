@@ -1,4 +1,5 @@
 #include "dbus.h"
+#include "dbus/dbus-protocol.h"
 #include "dbus_message.h"
 #include "godot_cpp/variant/array.hpp"
 #include "godot_cpp/variant/variant.hpp"
@@ -43,7 +44,8 @@ int DBus::connect(int bus_type) {
 
 // Send the given message and wait for a reply
 DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
-                                             String iface, String method) {
+                                             String iface, String method,
+                                             Array args) {
   if (dbus_conn == nullptr) {
     godot::UtilityFunctions::push_error("No dbus connection exists");
     return nullptr;
@@ -60,19 +62,27 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
       iface.ascii().get_data(), method.ascii().get_data());
 
   // Add arguments to the message
-  // for (int i = 0; i < args.size(); i++) {
-  //  Variant variant = args[i];
-  //  switch (variant.get_type()) {
-  //  case variant.STRING:
-  //    String arg = (String)variant;
-  //    ::dbus_message_append_args(msg, DBUS_TYPE_STRING,
-  //    arg.ascii().get_data(),
-  //                               DBUS_TYPE_INVALID);
-  //    break;
-  //  }
-  //  godot::UtilityFunctions::push_warning("Invalid argument type");
-  //  return nullptr;
-  //}
+  for (int i = 0; i < args.size(); i++) {
+    Variant variant = args[i];
+    switch (variant.get_type()) {
+    case variant.STRING: {
+      String arg = (String)variant;
+      ::dbus_message_append_args(msg, DBUS_TYPE_STRING, arg.ascii().get_data(),
+                                 DBUS_TYPE_INVALID);
+      break;
+    }
+    case variant.INT: {
+      int arg = (int)variant;
+      ::dbus_message_append_args(msg, DBUS_TYPE_INT32, arg, DBUS_TYPE_INVALID);
+      break;
+    }
+    default: {
+
+      godot::UtilityFunctions::push_warning("Invalid argument type");
+      return nullptr;
+    }
+    }
+  }
 
   // Send the message and check for errors
   reply = ::dbus_connection_send_with_reply_and_block(
@@ -133,7 +143,7 @@ void DBus::_bind_methods() {
   ClassDB::bind_method(D_METHOD("request_name", "name", "flags"),
                        &DBus::request_name);
   ClassDB::bind_method(D_METHOD("send_with_reply_and_block", "bus_name", "path",
-                                "iface", "method"),
+                                "iface", "method", "args"),
                        &DBus::send_with_reply_and_block);
 
   // Constants

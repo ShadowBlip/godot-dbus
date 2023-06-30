@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "godot_cpp/classes/global_constants.hpp"
+#include "godot_cpp/variant/array.hpp"
 #include "godot_cpp/variant/packed_byte_array.hpp"
 #include "godot_cpp/variant/packed_string_array.hpp"
 #include "godot_cpp/variant/string.hpp"
@@ -40,7 +41,8 @@ public:
   DBusMessage *send_with_reply_and_block(godot::String bus_name,
                                          godot::String path,
                                          godot::String iface,
-                                         godot::String method);
+                                         godot::String method,
+                                         godot::Array args);
 };
 
 #endif // DBUS_CLASS_H
