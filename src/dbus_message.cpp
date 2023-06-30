@@ -7,6 +7,7 @@ using godot::D_METHOD;
 using godot::Dictionary;
 using godot::PackedStringArray;
 using godot::String;
+using godot::Variant;
 
 DBusMessage::DBusMessage(){};
 DBusMessage::~DBusMessage() {
@@ -54,9 +55,55 @@ String DBusMessage::get_error_name() {
   return String(err);
 }
 
+// Convert a DBus string into a godot string
+String get_arg_string(DBusMessageIter *iter) {
+  const char *value;
+  ::dbus_message_iter_get_basic(iter, &value);
+  return String(value);
+}
+
+// Convert a DBus variant into a I dunno wtf
+Variant get_arg_variant(DBusMessageIter *iter) {
+  // const char *signature = ::dbus_message_iter_get_signature(iter);
+  // godot::UtilityFunctions::print("Found variant signature: ", signature);
+
+  // Open the container and get a sub iterator that we can use to check the type
+  DBusMessageIter sub_iter;
+  ::dbus_message_iter_recurse(iter, &sub_iter);
+
+  Variant value = get_arg(&sub_iter);
+
+  return value;
+}
+
 // Convert a DBus dictionary into a godot dictionary
 Dictionary get_arg_dictionary(DBusMessageIter *iter) {
   Dictionary dict = Dictionary();
+
+  // Iterate through the container with a sub-iterator
+  DBusMessageIter sub_iter;
+  ::dbus_message_iter_recurse(iter, &sub_iter);
+
+  // Loop through each dictionary entry. This will alternate between key
+  // and value
+  int i = 0;
+  int arg_type;
+  Variant key;
+  while ((arg_type = ::dbus_message_iter_get_arg_type(&sub_iter)) !=
+         DBUS_TYPE_INVALID) {
+    // Convert the key or value to a Godot type
+    Variant item = get_arg(&sub_iter);
+
+    // If it's even, it's a key, odd is a value
+    if (i % 2 == 0) {
+      key = item;
+    } else {
+      dict[key] = item;
+    }
+
+    ::dbus_message_iter_next(&sub_iter);
+    i++;
+  }
 
   return dict;
 }
@@ -80,9 +127,8 @@ Array get_arg_array(DBusMessageIter *iter) {
     godot::UtilityFunctions::print("Found string array type!");
     // PackedStringArray arr = PackedStringArray();
     for (int i = 0; i < element_count; i++) {
-      const char *value;
-      ::dbus_message_iter_get_basic(&sub_iter, &value);
-      arr.append(String(value));
+      String value = get_arg(&sub_iter);
+      arr.append(value);
       ::dbus_message_iter_next(&sub_iter);
     }
 
@@ -95,6 +141,7 @@ Array get_arg_array(DBusMessageIter *iter) {
     for (int i = 0; i < element_count; i++) {
       Dictionary dict = get_arg_dictionary(&sub_iter);
       arr.append(dict);
+      ::dbus_message_iter_next(&sub_iter);
     }
 
     return arr;
@@ -128,6 +175,91 @@ Array get_arg_array(DBusMessageIter *iter) {
   return arr;
 }
 
+// Converts the given DBus argument to a Godot variant
+Variant get_arg(DBusMessageIter *iter) {
+  int arg_type = ::dbus_message_iter_get_arg_type(iter);
+  char type[2];
+  type[0] = (char)arg_type;
+  type[1] = '\0';
+  godot::UtilityFunctions::print("Found type ", type);
+
+  // Handle arrays
+  if (arg_type == DBUS_TYPE_ARRAY) {
+    godot::UtilityFunctions::print("Found array type!");
+    Array arr = get_arg_array(iter);
+    return Variant(arr);
+  }
+
+  // Handle basic shit
+  if (arg_type == DBUS_TYPE_BOOLEAN) {
+    godot::UtilityFunctions::print("Found bool type!");
+    bool value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_BYTE) {
+    godot::UtilityFunctions::print("Found byte type!");
+    char value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_STRING || arg_type == DBUS_TYPE_OBJECT_PATH) {
+    godot::UtilityFunctions::print("Found string type!");
+    String value = get_arg_string(iter);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_INT16) {
+    godot::UtilityFunctions::print("Found int16 type!");
+    int16_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_INT32) {
+    godot::UtilityFunctions::print("Found int32 type!");
+    int32_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_INT64) {
+    godot::UtilityFunctions::print("Found int64 type!");
+    int64_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_UINT16) {
+    godot::UtilityFunctions::print("Found uint16 type!");
+    uint16_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_UINT32) {
+    godot::UtilityFunctions::print("Found uint32 type!");
+    uint32_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_UINT64) {
+    godot::UtilityFunctions::print("Found uint64 type!");
+    uint64_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_DOUBLE) {
+    godot::UtilityFunctions::print("Found double type!");
+    double_t value;
+    ::dbus_message_iter_get_basic(iter, &value);
+    return Variant(value);
+  }
+  if (arg_type == DBUS_TYPE_VARIANT) {
+    godot::UtilityFunctions::print("Found variant type!");
+    Variant value = get_arg_variant(iter);
+    return value;
+  }
+
+  godot::UtilityFunctions::print("Unknown type!");
+  return Variant();
+}
+
 // Gets the arguments from the message
 Array DBusMessage::get_args() {
   Array args = Array();
@@ -141,27 +273,8 @@ Array DBusMessage::get_args() {
   ::dbus_message_iter_init(message, &iter);
   while ((arg_type = ::dbus_message_iter_get_arg_type(&iter)) !=
          DBUS_TYPE_INVALID) {
-
-    // Handle arrays
-    if (arg_type == DBUS_TYPE_ARRAY) {
-      Array arr = get_arg_array(&iter);
-      args.append(arr);
-    }
-
-    // Handle basic shit
-    if (arg_type == DBUS_TYPE_STRING) {
-      godot::UtilityFunctions::print("Found string type!");
-      const char *value;
-      ::dbus_message_iter_get_basic(&iter, &value);
-      args.append(String(value));
-    }
-    if (arg_type == DBUS_TYPE_INT32) {
-      godot::UtilityFunctions::print("Found int32 type!");
-      int *value;
-      ::dbus_message_iter_get_basic(&iter, &value);
-      args.append(*value);
-    }
-
+    Variant arg = get_arg(&iter);
+    args.append(arg);
     dbus_message_iter_next(&iter);
   }
 

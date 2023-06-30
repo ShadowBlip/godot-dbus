@@ -13,6 +13,7 @@
 #include "godot_cpp/variant/packed_byte_array.hpp"
 #include "godot_cpp/variant/packed_string_array.hpp"
 #include "godot_cpp/variant/string.hpp"
+#include "godot_cpp/variant/variant.hpp"
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/binder_common.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -43,5 +44,7 @@ public:
   godot::String get_string_args();
   godot::Array get_args();
 };
+
+godot::Variant get_arg(DBusMessageIter *iter);
 
 #endif // DBUS_MESSAGE_CLASS_H
