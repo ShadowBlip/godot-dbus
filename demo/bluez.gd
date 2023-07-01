@@ -7,6 +7,20 @@ var dbus := DBus.new()
 func _init() -> void:
 	if dbus.connect(dbus.DBUS_BUS_SYSTEM) != OK:
 		print("Unable to connect to dbus!")
+	
+	# Watch for some signals
+	if dbus.add_match("type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties'") != OK:
+		print("Unable to add matcher for signals!")
+
+
+func _process(_delta: float) -> void:
+	var msg := dbus.pop_message()
+	if not msg:
+		return
+	
+	# Message to process!
+	print("Got message!")
+	print(msg.get_args())
 
 
 func get_discovery_filters(device: String = "hci0") -> PackedStringArray:
@@ -18,7 +32,25 @@ func get_discovery_filters(device: String = "hci0") -> PackedStringArray:
 
 func get_managed_objects():
 	var response := dbus.send_with_reply_and_block("org.bluez", "/", 'org.freedesktop.DBus.ObjectManager', "GetManagedObjects", [])
-	print(response.get_args())
+	if not response:
+		return
+
+	# "GetManagedObjects" returns one argument; A dictionary of dictionaries
+	var res := response.get_args()
+	if res.size() != 1:
+		return
+	
+	var objects := res[0] as Dictionary
+	for obj_path in objects.keys():
+		var data := objects[obj_path] as Dictionary
+		
+		# Look for objects that implement the 'org.bluez.Device1' interface
+		if not "org.bluez.Device1" in data:
+			continue
+		var device := data["org.bluez.Device1"] as Dictionary
+		
+		# Look for the address and name
+		print("Discovered device [", device["Address"], "] at object path: ", obj_path)
 
 
 func start_discovery():

@@ -37,11 +37,11 @@ public:
   // Methods
   bool is_empty();
   int get_type();
+  bool is_signal(godot::String iface, godot::String name);
   godot::String get_error_name();
   godot::String get_signature();
   void new_method_call(godot::String bus_name, godot::String path,
                        godot::String iface, godot::String method);
-  godot::String get_string_args();
   godot::Array get_args();
 };
 
