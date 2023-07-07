@@ -117,6 +117,24 @@ DBusMessage *DBus::pop_message() {
   return response;
 }
 
+// Sets the given argument on the DBusMessage with the given iterator
+void append_arg(DBusMessageIter *iter, Variant variant) {
+  auto arg_type = variant.get_type();
+  if (arg_type == variant.STRING) {
+    String arg = String(variant);
+    const char *data = arg.ascii().get_data();
+    ::dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &data);
+    return;
+  }
+  if (arg_type == variant.INT) {
+    int arg = (int)variant;
+    ::dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &arg);
+    return;
+  }
+
+  godot::UtilityFunctions::push_warning("Invalid/unhandled argument type");
+}
+
 // Send the given message and wait for a reply
 DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
                                              String iface, String method,
@@ -136,27 +154,14 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
       bus_name.ascii().get_data(), path.ascii().get_data(),
       iface.ascii().get_data(), method.ascii().get_data());
 
+  // Create an iterator to append arguments to the message
+  DBusMessageIter iter;
+  ::dbus_message_iter_init_append(msg, &iter);
+
   // Add arguments to the message
   for (int i = 0; i < args.size(); i++) {
     Variant variant = args[i];
-    switch (variant.get_type()) {
-    case variant.STRING: {
-      String arg = (String)variant;
-      ::dbus_message_append_args(msg, DBUS_TYPE_STRING, arg.ascii().get_data(),
-                                 DBUS_TYPE_INVALID);
-      break;
-    }
-    case variant.INT: {
-      int arg = (int)variant;
-      ::dbus_message_append_args(msg, DBUS_TYPE_INT32, arg, DBUS_TYPE_INVALID);
-      break;
-    }
-    default: {
-
-      godot::UtilityFunctions::push_warning("Invalid argument type");
-      return nullptr;
-    }
-    }
+    append_arg(&iter, variant);
   }
 
   // Send the message and check for errors
