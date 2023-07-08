@@ -41,6 +41,36 @@ int DBusMessage::get_type() {
   return ::dbus_message_get_type(message);
 };
 
+// Return the path to the object this message is for or from
+String DBusMessage::get_path() {
+  if (is_empty()) {
+    return String();
+  }
+
+  const char *path = ::dbus_message_get_path(message);
+  return String(path);
+}
+
+// Return the sender of this message
+String DBusMessage::get_sender() {
+  if (is_empty()) {
+    return String();
+  }
+
+  const char *sender = ::dbus_message_get_sender(message);
+  return String(sender);
+}
+
+// Return the member of this message
+String DBusMessage::get_member() {
+  if (is_empty()) {
+    return String();
+  }
+
+  const char *membr = ::dbus_message_get_member(message);
+  return String(membr);
+}
+
 // Gets the type signature of the message, i.e. the arguments in the message
 // payload. The signature is a string made up of type codes such as
 // DBUS_TYPE_INT32. The string is terminated with nul (nul is also the value of
@@ -288,6 +318,9 @@ void DBusMessage::_bind_methods() {
   ClassDB::bind_method(D_METHOD("is_signal", "iface", "name"),
                        &DBusMessage::is_signal);
   ClassDB::bind_method(D_METHOD("get_type"), &DBusMessage::get_type);
+  ClassDB::bind_method(D_METHOD("get_path"), &DBusMessage::get_path);
+  ClassDB::bind_method(D_METHOD("get_sender"), &DBusMessage::get_sender);
+  ClassDB::bind_method(D_METHOD("get_member"), &DBusMessage::get_member);
   ClassDB::bind_method(D_METHOD("get_signature"), &DBusMessage::get_signature);
   ClassDB::bind_method(D_METHOD("get_args"), &DBusMessage::get_args);
   ClassDB::bind_method(D_METHOD("get_error_name"),

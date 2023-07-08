@@ -43,6 +43,9 @@ public:
   void new_method_call(godot::String bus_name, godot::String path,
                        godot::String iface, godot::String method);
   godot::Array get_args();
+  godot::String get_path();
+  godot::String get_sender();
+  godot::String get_member();
 };
 
 godot::Variant get_arg(DBusMessageIter *iter);
