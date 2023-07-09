@@ -50,7 +50,7 @@ $(DEBUG_TARGET): $(ALL_HEADERS) $(ALL_CPP) $(GODOT_CPP_FILES)
 
 .PHONY: edit-demo
 edit-demo: build ## Edit the demo project in Godot
-	godot --editor --path ./demo
+	godot --editor --single-window --path ./demo
 
 .PHONY: run-demo
 run-demo: build
