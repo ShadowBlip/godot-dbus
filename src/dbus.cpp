@@ -125,9 +125,7 @@ void append_arg(DBusMessageIter *iter, Variant variant) {
     String arg = String(variant);
     // Duplicate the string and append it to the message
     const char *data = String(arg.ascii().get_data()).ascii().get_data();
-    puts(data);
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &data);
-    puts(data);
     return;
   }
   if (arg_type == variant.INT) {
@@ -179,11 +177,6 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
     Variant variant = args[i];
     append_arg(&iter, variant);
   }
-
-  // PRINT THE MSG!
-  DBusMessage *new_msg = memnew(DBusMessage());
-  new_msg->message = msg;
-  godot::UtilityFunctions::print(new_msg->get_args());
 
   // Send the message and check for errors
   reply = ::dbus_connection_send_with_reply_and_block(
