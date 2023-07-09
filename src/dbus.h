@@ -41,6 +41,7 @@ public:
   int connect(int bus_type);
   godot::String get_unique_name();
   DBusMessage *pop_message();
+  bool name_has_owner(godot::String name);
   int request_name(godot::String name, unsigned int flags);
   DBusMessage *send_with_reply_and_block(godot::String bus_name,
                                          godot::String path,

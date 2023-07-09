@@ -1,6 +1,7 @@
 #include "dbus.h"
 #include "dbus/dbus-protocol.h"
 #include "dbus_message.h"
+#include "godot_cpp/variant/utility_functions.hpp"
 
 // References:
 // http://www.matthew.ath.cx/misc/dbus
@@ -30,7 +31,7 @@ int DBus::connect(int bus_type) {
   ::dbus_error_init(&dbus_error);
 
   // Connect to dbus
-  dbus_conn = ::dbus_bus_get(DBUS_BUS_SYSTEM, &dbus_error);
+  dbus_conn = ::dbus_bus_get((DBusBusType)bus_type, &dbus_error);
   if (dbus_conn == nullptr) {
     godot::UtilityFunctions::push_warning(
         "Unable to connect to bus: ", dbus_error.name, dbus_error.message);
@@ -122,13 +123,28 @@ void append_arg(DBusMessageIter *iter, Variant variant) {
   auto arg_type = variant.get_type();
   if (arg_type == variant.STRING) {
     String arg = String(variant);
-    const char *data = arg.ascii().get_data();
+    // Duplicate the string and append it to the message
+    const char *data = String(arg.ascii().get_data()).ascii().get_data();
+    puts(data);
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &data);
+    puts(data);
     return;
   }
   if (arg_type == variant.INT) {
-    int arg = (int)variant;
+    dbus_int32_t arg = (dbus_int32_t)variant;
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &arg);
+    return;
+  }
+  if (arg_type == variant.BOOL) {
+    dbus_bool_t arg = variant.booleanize();
+    // HACK
+    // TODO: We need to figure out the signature, then set the types. This is
+    // an example of passing a BOOL as a variant
+    DBusMessageIter sub_iter;
+    ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
+                                       DBUS_TYPE_BOOLEAN_AS_STRING, &sub_iter);
+    ::dbus_message_iter_append_basic(&sub_iter, DBUS_TYPE_BOOLEAN, &arg);
+    ::dbus_message_iter_close_container(iter, &sub_iter);
     return;
   }
 
@@ -164,6 +180,11 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
     append_arg(&iter, variant);
   }
 
+  // PRINT THE MSG!
+  DBusMessage *new_msg = memnew(DBusMessage());
+  new_msg->message = msg;
+  godot::UtilityFunctions::print(new_msg->get_args());
+
   // Send the message and check for errors
   reply = ::dbus_connection_send_with_reply_and_block(
       dbus_conn, msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
@@ -192,6 +213,30 @@ String DBus::get_unique_name() {
   }
   return String(::dbus_bus_get_unique_name(dbus_conn));
 }
+
+// Asks the bus to assign the given name to this connection by invoking the
+// RequestName method on the bus.
+bool DBus::name_has_owner(String name) {
+  if (dbus_conn == nullptr) {
+    godot::UtilityFunctions::push_error("No dbus connection exists");
+    return false;
+  }
+
+  // Create an initialize the error struct
+  DBusError dbus_error;
+  ::dbus_error_init(&dbus_error);
+
+  bool ret = ::dbus_bus_name_has_owner(dbus_conn, name.ascii().get_data(),
+                                       &dbus_error);
+  if (::dbus_error_is_set(&dbus_error)) {
+    godot::UtilityFunctions::push_warning(
+        "Failed to see if name has owner: ", dbus_error.name, " ",
+        dbus_error.message);
+  }
+  dbus_error_free(&dbus_error);
+
+  return ret;
+};
 
 // Asks the bus to assign the given name to this connection by invoking the
 // RequestName method on the bus.
@@ -224,6 +269,8 @@ void DBus::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_unique_name"), &DBus::get_unique_name);
   ClassDB::bind_method(D_METHOD("request_name", "name", "flags"),
                        &DBus::request_name);
+  ClassDB::bind_method(D_METHOD("name_has_owner", "name"),
+                       &DBus::name_has_owner);
   ClassDB::bind_method(D_METHOD("pop_message"), &DBus::pop_message);
   ClassDB::bind_method(D_METHOD("send_with_reply_and_block", "bus_name", "path",
                                 "iface", "method", "args"),
