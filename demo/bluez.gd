@@ -59,3 +59,13 @@ func start_discovery():
 
 func stop_discovery():
 	var response := dbus.send_with_reply_and_block("org.bluez", "/org/bluez/hci0", "org.bluez.Adapter1", "StopDiscovery", [])
+
+
+func set_powered(powered: bool):
+	var response := dbus.send_with_reply_and_block(
+			"org.bluez", 
+			"/org/bluez/hci0", 
+			"org.freedesktop.DBus.Properties", 
+			"Set", 
+			["org.bluez.Adapter1", "Powered", powered]
+		)
