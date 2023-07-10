@@ -144,11 +144,28 @@ void append_arg(DBusMessageIter *iter, Variant variant, char signature) {
   // shows up here at 119 instead.
   if (signature == DBUS_TYPE_VARIANT || signature == 119) {
     if (arg_type == variant.BOOL) {
-      dbus_bool_t arg = variant.booleanize();
       DBusMessageIter sub_iter;
       ::dbus_message_iter_open_container(
           iter, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &sub_iter);
       append_arg(&sub_iter, variant, DBUS_TYPE_BOOLEAN);
+      ::dbus_message_iter_close_container(iter, &sub_iter);
+
+      return;
+    }
+    if (arg_type == variant.STRING) {
+      DBusMessageIter sub_iter;
+      ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
+                                         DBUS_TYPE_STRING_AS_STRING, &sub_iter);
+      append_arg(&sub_iter, variant, DBUS_TYPE_STRING);
+      ::dbus_message_iter_close_container(iter, &sub_iter);
+
+      return;
+    }
+    if (arg_type == variant.INT) {
+      DBusMessageIter sub_iter;
+      ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
+                                         DBUS_TYPE_INT32_AS_STRING, &sub_iter);
+      append_arg(&sub_iter, variant, DBUS_TYPE_INT32);
       ::dbus_message_iter_close_container(iter, &sub_iter);
 
       return;
