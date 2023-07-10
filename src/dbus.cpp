@@ -119,42 +119,57 @@ DBusMessage *DBus::pop_message() {
 }
 
 // Sets the given argument on the DBusMessage with the given iterator
-void append_arg(DBusMessageIter *iter, Variant variant) {
-  auto arg_type = variant.get_type();
-  if (arg_type == variant.STRING) {
+void append_arg(DBusMessageIter *iter, Variant variant, char signature) {
+  if (signature == DBUS_TYPE_STRING) {
     String arg = String(variant);
     // Duplicate the string and append it to the message
     const char *data = String(arg.ascii().get_data()).ascii().get_data();
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &data);
     return;
   }
-  if (arg_type == variant.INT) {
+  if (signature == DBUS_TYPE_INT32) {
     dbus_int32_t arg = (dbus_int32_t)variant;
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &arg);
     return;
   }
-  if (arg_type == variant.BOOL) {
+  if (signature == DBUS_TYPE_BOOLEAN) {
     dbus_bool_t arg = variant.booleanize();
-    // HACK
-    // TODO: We need to figure out the signature, then set the types. This is
-    // an example of passing a BOOL as a variant
-    DBusMessageIter sub_iter;
-    ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
-                                       DBUS_TYPE_BOOLEAN_AS_STRING, &sub_iter);
-    ::dbus_message_iter_append_basic(&sub_iter, DBUS_TYPE_BOOLEAN, &arg);
-    ::dbus_message_iter_close_container(iter, &sub_iter);
+    ::dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &arg);
     return;
   }
 
-  godot::UtilityFunctions::push_warning("Invalid/unhandled argument type");
+  // Handle variant types
+  auto arg_type = variant.get_type();
+  // TODO: Why is it 119!? If we pass 'v' (ASCII value 118), for some reason it
+  // shows up here at 119 instead.
+  if (signature == DBUS_TYPE_VARIANT || signature == 119) {
+    if (arg_type == variant.BOOL) {
+      dbus_bool_t arg = variant.booleanize();
+      DBusMessageIter sub_iter;
+      ::dbus_message_iter_open_container(
+          iter, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &sub_iter);
+      append_arg(&sub_iter, variant, DBUS_TYPE_BOOLEAN);
+      ::dbus_message_iter_close_container(iter, &sub_iter);
+
+      return;
+    }
+  }
+
+  godot::UtilityFunctions::push_warning("Invalid/unhandled argument type: ",
+                                        signature);
 }
 
 // Send the given message and wait for a reply
 DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
                                              String iface, String method,
-                                             Array args) {
+                                             Array args, String signature) {
   if (dbus_conn == nullptr) {
     godot::UtilityFunctions::push_error("No dbus connection exists");
+    return nullptr;
+  }
+  if (args.size() != signature.length()) {
+    godot::UtilityFunctions::push_error(
+        "Signature does not match number of arguments");
     return nullptr;
   }
 
@@ -173,9 +188,11 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
   ::dbus_message_iter_init_append(msg, &iter);
 
   // Add arguments to the message
+  const char *sig = String(signature.ascii().get_data()).ascii().get_data();
   for (int i = 0; i < args.size(); i++) {
     Variant variant = args[i];
-    append_arg(&iter, variant);
+    // TODO: validate Godot types match signature
+    append_arg(&iter, variant, sig[i]);
   }
 
   // Send the message and check for errors
@@ -266,7 +283,7 @@ void DBus::_bind_methods() {
                        &DBus::name_has_owner);
   ClassDB::bind_method(D_METHOD("pop_message"), &DBus::pop_message);
   ClassDB::bind_method(D_METHOD("send_with_reply_and_block", "bus_name", "path",
-                                "iface", "method", "args"),
+                                "iface", "method", "args", "signature"),
                        &DBus::send_with_reply_and_block);
 
   // Constants

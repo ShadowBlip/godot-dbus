@@ -43,11 +43,12 @@ public:
   DBusMessage *pop_message();
   bool name_has_owner(godot::String name);
   int request_name(godot::String name, unsigned int flags);
-  DBusMessage *send_with_reply_and_block(godot::String bus_name,
-                                         godot::String path,
-                                         godot::String iface,
-                                         godot::String method,
-                                         godot::Array args);
+  DBusMessage *
+  send_with_reply_and_block(godot::String bus_name, godot::String path,
+                            godot::String iface, godot::String method,
+                            godot::Array args, godot::String signature);
 };
+
+void append_arg(DBusMessageIter *iter, godot::Variant variant, char signature);
 
 #endif // DBUS_CLASS_H
