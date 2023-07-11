@@ -49,6 +49,7 @@ public:
                             godot::Array args, godot::String signature);
 };
 
-void append_arg(DBusMessageIter *iter, godot::Variant variant, char signature);
+void append_arg(DBusMessageIter *iter, godot::Variant variant,
+                godot::String signature, int *cursor);
 
 #endif // DBUS_CLASS_H

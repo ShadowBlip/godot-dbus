@@ -10,6 +10,7 @@
 using godot::Array;
 using godot::ClassDB;
 using godot::D_METHOD;
+using godot::Dictionary;
 using godot::String;
 using godot::Variant;
 
@@ -119,53 +120,117 @@ DBusMessage *DBus::pop_message() {
 }
 
 // Sets the given argument on the DBusMessage with the given iterator
-void append_arg(DBusMessageIter *iter, Variant variant, char signature) {
-  if (signature == DBUS_TYPE_STRING) {
+void append_arg(DBusMessageIter *iter, Variant variant, String signature,
+                int *cursor) {
+  const auto variant_type = variant.get_type();
+  const char *sig = String(signature.ascii().get_data()).ascii().get_data();
+  const int position = *cursor;
+  const char arg_type = sig[position];
+
+  if (arg_type == DBUS_TYPE_STRING) {
     String arg = String(variant);
     // Duplicate the string and append it to the message
     const char *data = String(arg.ascii().get_data()).ascii().get_data();
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &data);
     return;
   }
-  if (signature == DBUS_TYPE_INT32) {
+  if (arg_type == DBUS_TYPE_INT32) {
     dbus_int32_t arg = (dbus_int32_t)variant;
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &arg);
     return;
   }
-  if (signature == DBUS_TYPE_BOOLEAN) {
+  if (arg_type == DBUS_TYPE_BOOLEAN) {
     dbus_bool_t arg = variant.booleanize();
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &arg);
     return;
   }
 
+  // Handle arrays and dictionaries
+  if (arg_type == DBUS_TYPE_ARRAY) {
+    DBusMessageIter arr_iter;
+
+    // Validate the signature size
+    if (position + 1 > signature.length()) {
+      godot::UtilityFunctions::push_warning("Invalid signature size");
+      return;
+    }
+
+    // Handle dictionaries.
+    // Check to see if the next character indicates this is a dictionary.
+    // E.g. 'a{sv}'
+    // TODO: Handle crazy dictionaries like 'a{sa{sv}}'
+    if (sig[position + 1] == DBUS_DICT_ENTRY_BEGIN_CHAR) {
+      godot::UtilityFunctions::print("Found dictionary");
+
+      // Ensure the passed variant is a dictionary
+      if (variant_type != variant.DICTIONARY) {
+        godot::UtilityFunctions::push_warning(
+            "Passed dictionary signature without dictionary argument");
+        return;
+      }
+      Dictionary dict = Dictionary(variant);
+
+      // Get the dictionary signature from the signature. The '{sv}' part of
+      // 'a{sv}'
+      String dict_sig = signature.substr(position + 1, position + 4);
+      godot::UtilityFunctions::print("Found dictionary signature: ", dict_sig);
+
+      // Move the cursor through the signature to skip over the dictionary
+      // E.g. a{sv}b -> a{sv}b
+      //      ^             ^
+      *cursor = *cursor + 1;
+
+      // Open the array container
+      ::dbus_message_iter_open_container(
+          iter, DBUS_TYPE_ARRAY, dict_sig.ascii().get_data(), &arr_iter);
+
+      // Loop through the dictionary and append the key/value pairs
+      Array keys = dict.keys();
+      for (int i = 0; i < keys.size(); i++) {
+        // TODO: Implement this
+        // Variant key = keys[i];
+        // DBusMessageIter entry_iter;
+
+        //// Open the dictionary entry container
+        //::dbus_message_iter_open_container(&arr_iter, );
+      }
+
+      // Close the array
+      ::dbus_message_iter_close_container(iter, &arr_iter);
+
+      return;
+    }
+  }
+
   // Handle variant types
-  auto arg_type = variant.get_type();
   // TODO: Why is it 119!? If we pass 'v' (ASCII value 118), for some reason it
   // shows up here at 119 instead.
-  if (signature == DBUS_TYPE_VARIANT || signature == 119) {
-    if (arg_type == variant.BOOL) {
-      DBusMessageIter sub_iter;
+  if (arg_type == DBUS_TYPE_VARIANT || arg_type == 119) {
+    DBusMessageIter sub_iter;
+    int sub_cursor = 0;
+    if (variant_type == variant.BOOL) {
       ::dbus_message_iter_open_container(
           iter, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &sub_iter);
-      append_arg(&sub_iter, variant, DBUS_TYPE_BOOLEAN);
+      append_arg(&sub_iter, variant, String(DBUS_TYPE_BOOLEAN_AS_STRING),
+                 &sub_cursor);
       ::dbus_message_iter_close_container(iter, &sub_iter);
 
       return;
     }
-    if (arg_type == variant.STRING) {
-      DBusMessageIter sub_iter;
+    if (variant_type == variant.STRING) {
       ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
                                          DBUS_TYPE_STRING_AS_STRING, &sub_iter);
-      append_arg(&sub_iter, variant, DBUS_TYPE_STRING);
+      append_arg(&sub_iter, variant, String(DBUS_TYPE_STRING_AS_STRING),
+                 &sub_cursor);
       ::dbus_message_iter_close_container(iter, &sub_iter);
 
       return;
     }
-    if (arg_type == variant.INT) {
-      DBusMessageIter sub_iter;
+    if (variant_type == variant.INT) {
       ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
                                          DBUS_TYPE_INT32_AS_STRING, &sub_iter);
-      append_arg(&sub_iter, variant, DBUS_TYPE_INT32);
+      append_arg(&sub_iter, variant, String(DBUS_TYPE_INT32_AS_STRING),
+                 &sub_cursor);
       ::dbus_message_iter_close_container(iter, &sub_iter);
 
       return;
@@ -184,11 +249,12 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
     godot::UtilityFunctions::push_error("No dbus connection exists");
     return nullptr;
   }
-  if (args.size() != signature.length()) {
-    godot::UtilityFunctions::push_error(
-        "Signature does not match number of arguments");
-    return nullptr;
-  }
+  // TODO: Validate this better
+  // if (args.size() != signature.length()) {
+  //  godot::UtilityFunctions::push_error(
+  //      "Signature does not match number of arguments");
+  //  return nullptr;
+  //}
 
   // Create an initialize the error struct
   DBusError dbus_error;
@@ -204,12 +270,14 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
   DBusMessageIter iter;
   ::dbus_message_iter_init_append(msg, &iter);
 
-  // Add arguments to the message
-  const char *sig = String(signature.ascii().get_data()).ascii().get_data();
+  // Add arguments to the message. Here a cursor is also created so the
+  // signature can be traversed at a different rate than the arguments.
+  int cursor = 0;
   for (int i = 0; i < args.size(); i++) {
     Variant variant = args[i];
     // TODO: validate Godot types match signature
-    append_arg(&iter, variant, sig[i]);
+    append_arg(&iter, variant, signature, &cursor);
+    cursor++;
   }
 
   // Send the message and check for errors
@@ -217,7 +285,8 @@ DBusMessage *DBus::send_with_reply_and_block(String bus_name, String path,
       dbus_conn, msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
   if (reply == nullptr) {
     godot::UtilityFunctions::push_warning(
-        "Unable to send message: ", dbus_error.name, " ", dbus_error.message);
+        "Unable to send message ", iface, ".", method, "(", args,
+        "): ", dbus_error.name, " ", dbus_error.message);
     ::dbus_error_free(&dbus_error);
     return nullptr;
   }
