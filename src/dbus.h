@@ -50,6 +50,6 @@ public:
 };
 
 void append_arg(DBusMessageIter *iter, godot::Variant variant,
-                godot::String signature, int *cursor);
+                DBusSignatureIter *sig_iter);
 
 #endif // DBUS_CLASS_H

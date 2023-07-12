@@ -25,13 +25,13 @@ func _process(_delta: float) -> void:
 
 func get_discovery_filters(device: String = "hci0") -> PackedStringArray:
 	var path := "/".join(["/org/bluez", device])
-	var response := dbus.send_with_reply_and_block("org.bluez", path, 'org.bluez.Adapter1', "GetDiscoveryFilters", [])
+	var response := dbus.send_with_reply_and_block("org.bluez", path, 'org.bluez.Adapter1', "GetDiscoveryFilters", [], "")
 	
 	return response.get_args()[0]
 
 
 func get_managed_objects():
-	var response := dbus.send_with_reply_and_block("org.bluez", "/", 'org.freedesktop.DBus.ObjectManager', "GetManagedObjects", [])
+	var response := dbus.send_with_reply_and_block("org.bluez", "/", 'org.freedesktop.DBus.ObjectManager', "GetManagedObjects", [], "")
 	if not response:
 		return
 
@@ -54,11 +54,11 @@ func get_managed_objects():
 
 
 func start_discovery():
-	var response := dbus.send_with_reply_and_block("org.bluez", "/org/bluez/hci0", "org.bluez.Adapter1", "StartDiscovery", [])
+	var response := dbus.send_with_reply_and_block("org.bluez", "/org/bluez/hci0", "org.bluez.Adapter1", "StartDiscovery", [], "")
 
 
 func stop_discovery():
-	var response := dbus.send_with_reply_and_block("org.bluez", "/org/bluez/hci0", "org.bluez.Adapter1", "StopDiscovery", [])
+	var response := dbus.send_with_reply_and_block("org.bluez", "/org/bluez/hci0", "org.bluez.Adapter1", "StopDiscovery", [], "")
 
 
 func set_powered(powered: bool):
@@ -67,5 +67,6 @@ func set_powered(powered: bool):
 			"/org/bluez/hci0", 
 			"org.freedesktop.DBus.Properties", 
 			"Set", 
-			["org.bluez.Adapter1", "Powered", powered]
+			["org.bluez.Adapter1", "Powered", powered],
+			"ssv"
 		)
