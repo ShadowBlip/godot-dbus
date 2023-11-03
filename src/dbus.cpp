@@ -137,6 +137,11 @@ void append_arg(DBusMessageIter *iter, Variant variant,
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &arg);
     return;
   }
+  if (arg_type == DBUS_TYPE_UINT32) {
+    dbus_uint32_t arg = (dbus_uint32_t)variant;
+    ::dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT32, &arg);
+    return;
+  }
   if (arg_type == DBUS_TYPE_BOOLEAN) {
     dbus_bool_t arg = variant.booleanize();
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &arg);
@@ -230,6 +235,22 @@ void append_arg(DBusMessageIter *iter, Variant variant,
       ::dbus_message_iter_close_container(iter, &sub_iter);
 
       return;
+    }
+    if (variant_type == variant.OBJECT) {
+      godot::Object *object = (godot::Object *)variant;
+      const godot::String class_name = object->get_class();
+      // godot::UtilityFunctions::print("Got object: ", class_name);
+
+      if (class_name == "DBusUInt32") {
+        DBusUInt32 *dbus_uint32 = (DBusUInt32 *)object;
+        ::dbus_signature_iter_init(&sub_sig_iter, DBUS_TYPE_UINT32_AS_STRING);
+        ::dbus_message_iter_open_container(
+            iter, DBUS_TYPE_VARIANT, DBUS_TYPE_UINT32_AS_STRING, &sub_iter);
+        append_arg(&sub_iter, dbus_uint32->get_value(), &sub_sig_iter);
+        ::dbus_message_iter_close_container(iter, &sub_iter);
+
+        return;
+      }
     }
   }
 
@@ -359,6 +380,14 @@ int DBus::request_name(String name, unsigned int flags) {
   return ret;
 };
 
+// Returns a uint32 value from the given int
+DBusUInt32 *DBus::uint32(int value) {
+  DBusUInt32 *dbus_value = memnew(DBusUInt32());
+  dbus_value->set_value(value);
+
+  return dbus_value;
+}
+
 // Register the methods with Godot
 void DBus::_bind_methods() {
   ClassDB::bind_method(D_METHOD("add_match", "rule"), &DBus::add_match);
@@ -373,6 +402,10 @@ void DBus::_bind_methods() {
   ClassDB::bind_method(D_METHOD("send_with_reply_and_block", "bus_name", "path",
                                 "iface", "method", "args", "signature"),
                        &DBus::send_with_reply_and_block);
+
+  // Type constructors
+  ClassDB::bind_static_method("DBus", D_METHOD("uint32", "value"),
+                              &DBus::uint32);
 
   // Constants
   BIND_CONSTANT(DBUS_BUS_SESSION);

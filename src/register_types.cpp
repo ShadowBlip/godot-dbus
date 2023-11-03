@@ -8,6 +8,7 @@
 
 #include "dbus.h"
 #include "dbus_message.h"
+#include "dbus_types.h"
 
 void initialize_dbus_module(godot::ModuleInitializationLevel p_level) {
   if (p_level != godot::MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -16,6 +17,8 @@ void initialize_dbus_module(godot::ModuleInitializationLevel p_level) {
 
   godot::ClassDB::register_class<DBusMessage>();
   godot::ClassDB::register_class<DBus>();
+  godot::ClassDB::register_class<DBusType>();
+  godot::ClassDB::register_class<DBusUInt32>();
 }
 
 void uninitialize_dbus_module(godot::ModuleInitializationLevel p_level) {

@@ -20,6 +20,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "dbus_message.h"
+#include "dbus_types.h"
 
 class DBus : public godot::RefCounted {
   GDCLASS(DBus, godot::RefCounted);
@@ -47,6 +48,9 @@ public:
   send_with_reply_and_block(godot::String bus_name, godot::String path,
                             godot::String iface, godot::String method,
                             godot::Array args, godot::String signature);
+
+  // Methods that convert types
+  static DBusUInt32 *uint32(int value);
 };
 
 void append_arg(DBusMessageIter *iter, godot::Variant variant,
