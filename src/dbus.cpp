@@ -2,6 +2,7 @@
 #include "dbus/dbus-protocol.h"
 #include "dbus_message.h"
 #include "godot_cpp/variant/utility_functions.hpp"
+#include <cstdio>
 
 // References:
 // http://www.matthew.ath.cx/misc/dbus
@@ -142,6 +143,11 @@ void append_arg(DBusMessageIter *iter, Variant variant,
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT32, &arg);
     return;
   }
+  if (arg_type == DBUS_TYPE_DOUBLE) {
+    double arg = (double)variant;
+    ::dbus_message_iter_append_basic(iter, DBUS_TYPE_DOUBLE, &arg);
+    return;
+  }
   if (arg_type == DBUS_TYPE_BOOLEAN) {
     dbus_bool_t arg = variant.booleanize();
     ::dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &arg);
@@ -236,6 +242,15 @@ void append_arg(DBusMessageIter *iter, Variant variant,
 
       return;
     }
+    if (variant_type == variant.FLOAT) {
+      ::dbus_signature_iter_init(&sub_sig_iter, DBUS_TYPE_DOUBLE_AS_STRING);
+      ::dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
+                                         DBUS_TYPE_DOUBLE_AS_STRING, &sub_iter);
+      append_arg(&sub_iter, variant, &sub_sig_iter);
+      ::dbus_message_iter_close_container(iter, &sub_iter);
+      return;
+    }
+
     if (variant_type == variant.OBJECT) {
       godot::Object *object = (godot::Object *)variant;
       const godot::String class_name = object->get_class();
@@ -251,11 +266,20 @@ void append_arg(DBusMessageIter *iter, Variant variant,
 
         return;
       }
+      godot::UtilityFunctions::push_warning(
+          "Invalid/unhandled Godot object type: ", class_name);
+      return;
     }
+
+    godot::UtilityFunctions::push_warning("Invalid/unhandled variant type: ",
+                                          variant_type);
+    return;
   }
 
+  char output[2];
+  sprintf(output, "%c", arg_type);
   godot::UtilityFunctions::push_warning("Invalid/unhandled argument type: ",
-                                        arg_type);
+                                        output);
 }
 
 // Send the given message and wait for a reply
