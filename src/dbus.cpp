@@ -276,7 +276,7 @@ void append_arg(DBusMessageIter *iter, Variant variant,
     return;
   }
 
-  char output[2];
+  char output[10];
   sprintf(output, "%c", arg_type);
   godot::UtilityFunctions::push_warning("Invalid/unhandled argument type: ",
                                         output);
