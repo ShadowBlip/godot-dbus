@@ -1,5 +1,6 @@
 #include "dbus.h"
 #include "dbus/dbus-protocol.h"
+#include "dbus/dbus.h"
 #include "dbus_message.h"
 #include "godot_cpp/variant/utility_functions.hpp"
 #include <cstdio>
@@ -207,6 +208,30 @@ void append_arg(DBusMessageIter *iter, Variant variant,
 
       return;
     }
+
+    // Handle regular arrays
+    // Recurse into the signature
+    DBusSignatureIter array_sig_iter;
+    ::dbus_signature_iter_recurse(sig_iter, &array_sig_iter);
+    const char *array_sig =
+        ::dbus_signature_iter_get_signature(&array_sig_iter);
+    godot::UtilityFunctions::print("Found array signature: ", array_sig);
+
+    // Open the array container
+    ::dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, array_sig,
+                                       &arr_iter);
+
+    // Convert the Godot Variant to a Godot Array
+    Array array = Array(variant);
+    for (int i = 0; i < array.size(); i++) {
+      Variant element = array[i];
+      append_arg(&arr_iter, element, &array_sig_iter);
+    }
+
+    // Close the array
+    ::dbus_message_iter_close_container(iter, &arr_iter);
+
+    return;
   }
 
   // Handle variant types
