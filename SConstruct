@@ -5,7 +5,11 @@ import sys
 
 ext_name = "dbus"
 
-env = SConscript("godot-cpp/SConstruct")
+# Load the environment from godot-cpp
+godot_cpp_path = "godot-cpp"
+if 'GODOT_CPP_PATH' in os.environ:
+    godot_cpp_path = os.environ['GODOT_CPP_PATH']
+env = SConscript(godot_cpp_path + "/SConstruct")
 
 # For the reference:
 # - CCFLAGS are compilation flags shared between C and C++
@@ -20,14 +24,9 @@ env.Append(CPPPATH=["src/"])
 sources = Glob("src/*.cpp")
 
 # Include dependency libraries for dbus
-env.Append(LIBS=["dbus-1"])
-env.Append(
-    CXXFLAGS=[
-        "-I/usr/include/dbus-1.0",
-        "-I/usr/lib/dbus-1.0/include",
-        "-I/usr/lib/x86_64-linux-gnu/dbus-1.0/include",
-    ]
-)
+if 'PKG_CONFIG_PATH' in os.environ:
+    env['ENV']['PKG_CONFIG_PATH'] = os.environ['PKG_CONFIG_PATH']
+env.ParseConfig("pkg-config dbus-1 --cflags --libs")
 
 # Generating the compilation DB (`compile_commands.json`) requires SCons 4.0.0 or later.
 
